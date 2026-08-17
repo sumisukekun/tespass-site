@@ -217,6 +217,13 @@
     transition:transform .35s ease;z-index:100;max-width:90vw;text-align:center;
   }
   #toast.show{transform:translate(-50%,0);}
+  #resultBanner{
+    display:none;max-width:1120px;margin:24px auto 0;padding:20px 24px;border-radius:14px;
+    font-size:15px;font-weight:500;
+  }
+  #resultBanner.show{display:block;}
+  #resultBanner.success{background:var(--green-wash);color:var(--green-deep);border:1px solid var(--green);}
+  #resultBanner.cancel{background:var(--amber-wash);color:#7A4A12;border:1px solid var(--amber);}
 
   /* trust */
   .trust-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;}
@@ -294,6 +301,10 @@
     <a class="nav-cta" href="#pricing">テストを依頼する</a>
   </div>
 </header>
+
+<div class="wrap">
+  <div id="resultBanner"></div>
+</div>
 
 <section class="hero">
   <div class="wrap hero-grid">
@@ -517,6 +528,26 @@
 <div id="toast"></div>
 
 <script>
+  // Show a clear banner after returning from Stripe Checkout, based on
+  // ?checkout=success or ?checkout=cancel in the URL, then clean the URL.
+  (function(){
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get('checkout');
+    const banner = document.getElementById('resultBanner');
+    if(status === 'success'){
+      banner.textContent = '✅ お支払いが完了しました。ご依頼ありがとうございます。（テスト決済のため実際の課金は発生していません）';
+      banner.className = 'success show';
+    } else if(status === 'cancel'){
+      banner.textContent = 'お支払いはキャンセルされました。内容を確認して、もう一度お試しください。';
+      banner.className = 'cancel show';
+    }
+    if(status){
+      const url = new URL(window.location.href);
+      url.searchParams.delete('checkout');
+      window.history.replaceState({}, '', url.pathname + url.hash);
+    }
+  })();
+
   // Hero gauge: build 15 ticks (base target), mark the 12-person required line, animate a fill count
   const heroGauge = document.getElementById('heroGauge');
   const heroCount = document.getElementById('heroCount');
