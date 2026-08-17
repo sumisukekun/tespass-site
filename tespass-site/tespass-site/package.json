@@ -1,9 +1,0 @@
-{
-  "name": "tespass-site",
-  "version": "1.0.0",
-  "private": true,
-  "description": "テスパス - Google Playストア出品のためのテスター提供サービス（デザイン確認+決済連携）",
-  "dependencies": {
-    "stripe": "^17.0.0"
-  }
-}
