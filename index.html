@@ -297,6 +297,7 @@
       <a href="#pricing">価格</a>
       <a href="#trust">安心設計</a>
       <a href="#faq">よくある質問</a>
+      <a href="tester.html">テスターページ</a>
     </nav>
     <a class="nav-cta" href="#pricing">テストを依頼する</a>
   </div>
@@ -472,6 +473,20 @@
   </div>
 </section>
 
+<section id="become-tester">
+  <div class="wrap">
+    <div class="pricing" style="background:var(--surface);border:1px solid var(--line);color:var(--ink);">
+      <div class="section-head">
+        <span class="eyebrow">テスター募集</span>
+        <h2 style="color:var(--ink);">テスターとして謝礼を受け取る。</h2>
+        <p style="color:var(--ink-soft);">アプリのクローズドテストに参加して、開発者が設定した謝礼を受け取れます。Amazonギフト券なら500円から、銀行振込なら1,000円からお受け取りいただけます。</p>
+      </div>
+      <a class="btn btn-primary" href="tester.html">テスターページを見る</a>
+      <p class="mock-note">案件一覧・謝礼の受け取り方法はテスターページで確認できます。</p>
+    </div>
+  </div>
+</section>
+
 <section id="faq" class="tight">
   <div class="wrap">
     <div class="section-head">
@@ -533,17 +548,29 @@
   (function(){
     const params = new URLSearchParams(window.location.search);
     const status = params.get('checkout');
+    const testerStatus = params.get('tester');
     const banner = document.getElementById('resultBanner');
+
     if(status === 'success'){
       banner.textContent = '✅ お支払いが完了しました。ご依頼ありがとうございます。（テスト決済のため実際の課金は発生していません）';
       banner.className = 'success show';
     } else if(status === 'cancel'){
       banner.textContent = 'お支払いはキャンセルされました。内容を確認して、もう一度お試しください。';
       banner.className = 'cancel show';
+    } else if(testerStatus === 'onboarded'){
+      const acct = params.get('account');
+      banner.textContent = '✅ テスター登録が完了しました。' + (acct ? '（アカウントID: ' + acct + '）' : '') + ' このIDを控えておいてください。';
+      banner.className = 'success show';
+    } else if(testerStatus === 'refresh'){
+      banner.textContent = '登録が途中で終了しました。お手数ですが、もう一度「テスターとして登録する」からやり直してください。';
+      banner.className = 'cancel show';
     }
-    if(status){
+
+    if(status || testerStatus){
       const url = new URL(window.location.href);
       url.searchParams.delete('checkout');
+      url.searchParams.delete('tester');
+      url.searchParams.delete('account');
       window.history.replaceState({}, '', url.pathname + url.hash);
     }
   })();
@@ -641,6 +668,11 @@
       payBtn.textContent = 'この内容でテストを依頼する';
     }
   });
+
+  // Note: the "create-connected-account" Netlify Function is still available
+  // for a future bank-transfer payout flow from tester.html — it's just not
+  // wired to a button on this page anymore now that Amazon gift cards are
+  // the primary reward method.
 </script>
 
 </body>
