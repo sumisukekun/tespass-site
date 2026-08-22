@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>テスパス 送金ツール（社内専用）</title>
+<style>
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;
+    max-width:520px;margin:48px auto;padding:0 20px;color:#14201C;background:#F7F8F6;
+  }
+  h1{font-size:20px;margin-bottom:4px;}
+  .warn{
+    background:#FCEEDF;border:1px solid #E8862E;color:#7A4A12;
+    padding:12px 16px;border-radius:10px;font-size:13.5px;margin:16px 0 28px;
+  }
+  label{display:block;font-size:13px;color:#4B5A54;margin:18px 0 6px;font-weight:600;}
+  input{
+    width:100%;padding:10px 12px;border:1px solid #DCE3DE;border-radius:8px;
+    font-size:14px;box-sizing:border-box;
+  }
+  button{
+    margin-top:24px;width:100%;padding:13px;border:none;border-radius:999px;
+    background:#1F9D55;color:#fff;font-size:15px;font-weight:600;cursor:pointer;
+  }
+  button:disabled{opacity:.6;cursor:default;}
+  #result{margin-top:18px;padding:14px;border-radius:10px;font-size:13.5px;display:none;}
+  #result.ok{display:block;background:#E7F4EC;color:#167A42;border:1px solid #1F9D55;}
+  #result.err{display:block;background:#FCEEDF;color:#7A4A12;border:1px solid #E8862E;}
+  .hint{font-size:12px;color:#8A968F;margin-top:4px;}
+</style>
+</head>
+<body>
+  <h1>テスター謝礼 送金ツール</h1>
+  <div class="warn">
+    ⚠️ このページは管理者（自分）専用です。このURLは他人に共有しないでください。
+    参加確認が取れたテスターにだけ、手動で送金してください。
+  </div>
+
+  <label for="secret">管理用シークレット</label>
+  <input type="password" id="secret" placeholder="Netlifyに設定したADMIN_SECRETと同じ値">
+  <div class="hint">この端末にだけ保存され、Stripeやテスパスのサーバーには送信時以外送られません。</div>
+
+  <label for="accountId">送金先アカウントID</label>
+  <input type="text" id="accountId" placeholder="acct_ から始まるID">
+  <div class="hint">テスターが登録完了時に発行される、Stripe Connectのアカウント番号です。</div>
+
+  <label for="amount">送金額（円・謝礼の総額を入力）</label>
+  <input type="number" id="amount" placeholder="500" min="1" max="100000">
+  <div class="hint" id="feePreview">振込手数料 ¥500 が差し引かれます。</div>
+
+  <label for="note">メモ（任意）</label>
+  <input type="text" id="note" placeholder="例: ○○アプリ クローズドテスト謝礼">
+
+  <button id="sendBtn">この内容で送金する</button>
+  <div id="result"></div>
+
+  <script>
+    const secretInput = document.getElementById('secret');
+    const savedSecret = localStorage.getItem('tespass_admin_secret');
+    if (savedSecret) secretInput.value = savedSecret;
+
+    const BANK_TRANSFER_FEE = 500;
+    const amountInput = document.getElementById('amount');
+    const feePreview = document.getElementById('feePreview');
+
+    function updateFeePreview(){
+      const amt = Number(amountInput.value);
+      if (!amt || amt <= 0){
+        feePreview.textContent = `振込手数料 ¥${BANK_TRANSFER_FEE} が差し引かれます。`;
+        return;
+      }
+      const net = amt - BANK_TRANSFER_FEE;
+      feePreview.textContent = net > 0
+        ? `振込手数料 ¥${BANK_TRANSFER_FEE} を差し引き、実際の送金額は ¥${net.toLocaleString('ja-JP')} になります。`
+        : `⚠️ 振込手数料 ¥${BANK_TRANSFER_FEE} を差し引くと0円以下になります。¥${BANK_TRANSFER_FEE + 1}以上を入力してください。`;
+    }
+    amountInput.addEventListener('input', updateFeePreview);
+
+    const btn = document.getElementById('sendBtn');
+    const result = document.getElementById('result');
+
+    btn.addEventListener('click', async () => {
+      const secret = secretInput.value.trim();
+      const accountId = document.getElementById('accountId').value.trim();
+      const amount = document.getElementById('amount').value;
+      const note = document.getElementById('note').value.trim();
+
+      result.className = '';
+      result.style.display = 'none';
+
+      if (!secret || !accountId || !amount) {
+        result.textContent = '管理用シークレット・送金先アカウントID・金額は必須です。';
+        result.className = 'err';
+        return;
+      }
+
+      localStorage.setItem('tespass_admin_secret', secret);
+
+      btn.disabled = true;
+      btn.textContent = '送金しています…';
+
+      try {
+        const res = await fetch('/.netlify/functions/send-payout', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-secret': secret,
+          },
+          body: JSON.stringify({ accountId, amount, note }),
+        });
+        const data = await res.json();
+
+        if (!res.ok) throw new Error(data.error || '送金に失敗しました。');
+
+        result.textContent = `✅ 送金が完了しました（謝礼総額 ¥${Number(data.grossAmount).toLocaleString('ja-JP')} − 手数料 ¥${data.fee} = 実送金額 ¥${Number(data.netAmount).toLocaleString('ja-JP')}、送金ID: ${data.id}）`;
+        result.className = 'ok';
+      } catch (err) {
+        result.textContent = '⚠️ ' + err.message;
+        result.className = 'err';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'この内容で送金する';
+      }
+    });
+  </script>
+</body>
+</html>
